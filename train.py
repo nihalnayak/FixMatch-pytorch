@@ -163,12 +163,12 @@ def main():
         datefmt="%m/%d/%Y %H:%M:%S",
         level=logging.INFO if args.local_rank in [-1, 0] else logging.WARN)
 
-    logger.warning(
-        f"Process rank: {args.local_rank}, "
-        f"device: {args.device}, "
-        f"n_gpu: {args.n_gpu}, "
-        f"distributed training: {bool(args.local_rank != -1)}, "
-        f"16-bits training: {args.amp}",)
+    # logger.warning(
+    #     f"Process rank: {args.local_rank}, "
+    #     f"device: {args.device}, "
+    #     f"n_gpu: {args.n_gpu}, "
+    #     f"distributed training: {bool(args.local_rank != -1)}, "
+    #     f"16-bits training: {args.amp}",)
 
     logger.info(dict(args._get_kwargs()))
 
