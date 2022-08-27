@@ -18,6 +18,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from dataset.cifar import DATASET_GETTERS
+from dataset.mixup import partial_mixup
 from utils import AverageMeter, accuracy
 
 logger = logging.getLogger(__name__)
@@ -124,6 +125,8 @@ def main():
                         help="For distributed training: local_rank")
     parser.add_argument('--no-progress', action='store_true',
                         help="don't use progress bar")
+    parser.add_argument('--mixup', action='store_true', help='use mixup as the augmentation.')
+    parser.add_argument('--alpha', default=9, type=float, help='alpha for mixup')
 
     args = parser.parse_args()
     global best_acc
@@ -163,12 +166,12 @@ def main():
         datefmt="%m/%d/%Y %H:%M:%S",
         level=logging.INFO if args.local_rank in [-1, 0] else logging.WARN)
 
-    # logger.warning(
-    #     f"Process rank: {args.local_rank}, "
-    #     f"device: {args.device}, "
-    #     f"n_gpu: {args.n_gpu}, "
-    #     f"distributed training: {bool(args.local_rank != -1)}, "
-    #     f"16-bits training: {args.amp}",)
+    logger.warning(
+        f"Process rank: {args.local_rank}, "
+        f"device: {args.device}, "
+        f"n_gpu: {args.n_gpu}, "
+        f"distributed training: {bool(args.local_rank != -1)}, "
+        f"16-bits training: {args.amp}",)
 
     logger.info(dict(args._get_kwargs()))
 
@@ -337,12 +340,24 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
 
             try:
                 (inputs_u_w, inputs_u_s), _ = unlabeled_iter.next()
+
+                #
+                if args.mixup:
+                    indices = torch.randperm(inputs_u_w.size(0), device=inputs_u_w.device, dtype=torch.long)
+                    gamma = np.random.beta(args.alpha, args.alpha)
+                    inputs_u_s = partial_mixup(inputs_u_w, gamma, indices)
+
+
             except:
                 if args.world_size > 1:
                     unlabeled_epoch += 1
                     unlabeled_trainloader.sampler.set_epoch(unlabeled_epoch)
                 unlabeled_iter = iter(unlabeled_trainloader)
                 (inputs_u_w, inputs_u_s), _ = unlabeled_iter.next()
+                if args.mixup:
+                    indices = torch.randperm(inputs_u_w.size(0), device=inputs_u_w.device, dtype=torch.long)
+                    gamma = np.random.beta(args.alpha, args.alpha)
+                    inputs_u_s = partial_mixup(inputs_u_w, gamma, indices)
 
             data_time.update(time.time() - end)
             batch_size = inputs_x.shape[0]
